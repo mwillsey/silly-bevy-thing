@@ -1,6 +1,5 @@
 use bevy::prelude::*;
 use bevy_rapier2d::physics::*;
-use bevy_rapier2d::render::RapierRenderPlugin;
 use bevy_rapier2d::rapier::{dynamics::*, geometry::ColliderBuilder};
 use bevy_rapier2d::rapier::na::Vector2;
 
@@ -13,7 +12,6 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
 
     rapier_config.scale = 20.0;
     rapier_config.gravity = Vector2::new(0.0, -100.0);
-    // commands.spawn(Camera3dBundle::default());
     commands.spawn(Camera2dBundle::default());
 
     let block_mat = materials.add(Color::rgba(0.0, 1.0, 0.0, 0.2).into());
@@ -33,7 +31,6 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
     let player_size = 20.0;
     commands.spawn(SpriteBundle {
         material: materials.add(Color::rgb(0.1, 0.9, 1.0).into()),
-        // transform: Transform::from_translation(Vec3::new(0.0, -415.0, 0.0)),
         sprite: Sprite::new(Vec2::new(player_size, player_size)),
         ..Default::default()
     })
@@ -68,9 +65,6 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
                     .friction(0.2));
         }
     }
-
-    // commands.with(Player);
-
     block(commands, 0.0, -200.0, 2000.0, 100.0);
     block(commands, 0.0, 400.0, 2000.0, 100.0);
     block(commands, -600.0, 0.0, 100.0, 2000.0);
@@ -83,18 +77,6 @@ struct Velocity(Vec2);
 #[derive(Default)]
 struct Force(Vec2);
 
-fn physics(
-    time: Res<Time>,
-    mut query: Query<(&mut Transform, &mut Velocity, Option<&mut Force>)>
-) {
-    for (mut transform, mut vel, force) in query.iter_mut() {
-        if let Some(mut force) = force {
-            vel.0 += std::mem::take(&mut force.0);
-        }
-        transform.translation += vel.0.extend(0.0) * time.delta_seconds();
-    }
-}
-
 fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
@@ -103,34 +85,26 @@ fn move_player(
     for (_player, rb_comp) in query.iter() {
         let rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
 
-        let ss = rb.mass() * 5.0 * ((10.0*10.0) / (15.0*15.0));
+        let phys_scal = rb.mass() * 2.0;
 
         let mut vel = Vector2::new(rb.linvel().x, rb.linvel().y);
         let mut jump_force = Vector2::zeros();
         let mut fric_force = Vector2::zeros();
         let mut side_force = Vector2::zeros();
-        let side_mag = 25.0;
-        let sidef_mag = 200.0 * ss;
-        let fric_mag = 50.0 * ss;
-        let frig_s = 10.0 * ss;
-        let jump_mag = 15.0 * ss;
-        // let mag = 0.2;
-        // let mag = 0.02;
+        let sidef_mag = 200.0 * phys_scal;
+        let frig_s = 10.0 * phys_scal;
+        let jump_mag = 15.0 * phys_scal;
         if keyboard_input.just_pressed(KeyCode::Up) {
             jump_force.y += jump_mag;
         }
-        // if keyboard_input.pressed(KeyCode::Down) {
-        //     force.y -= mag;
-        // }
         if keyboard_input.pressed(KeyCode::Left) {
-            // vel.x = -side_mag;
             side_force.x -= sidef_mag
         }
         if keyboard_input.pressed(KeyCode::Right) {
-            // vel.x = side_mag;
             side_force.x += sidef_mag
         }
         if jump_force.magnitude_squared() > 0.0 {
+            // reset y vel when jumping
             vel.y = 0.0;
         }
         rb.set_linvel(vel, true);
@@ -141,15 +115,9 @@ fn move_player(
             rb.apply_force(side_force, true);
         }
         fric_force.x = -rb.linvel().x*frig_s;
-        // if rb.linvel().x < 0.0 {
-        //     fric_force.x += fric_mag;
-        // } else if rb.linvel().x > 0.0 {
-        //     fric_force.x -= fric_mag;
-        // }
         if fric_force.magnitude_squared() > 0.0 {
             rb.apply_force(fric_force, true);
         }
-        // rb.apply_impulse(force, true);
     }
 }
 
