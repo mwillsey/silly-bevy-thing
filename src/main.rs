@@ -1,3 +1,5 @@
+use std::todo;
+
 use bevy::prelude::*;
 use bevy_rapier2d::physics::*;
 use bevy_rapier2d::rapier::{dynamics::*, geometry::ColliderBuilder};
@@ -77,7 +79,38 @@ struct Velocity(Vec2);
 #[derive(Default)]
 struct Force(Vec2);
 
-fn move_player(
+fn player_fight(
+    keyboard_input: Res<Input<KeyCode>>,
+    mut rigid_bodies: ResMut<RigidBodySet>,
+    commands: &mut Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut rapier_config: ResMut<RapierConfiguration>,
+    query: Query<(&Player, &RigidBodyHandleComponent)>
+) {
+    for (_player, rb_comp) in query.iter() {
+        if keyboard_input.pressed(KeyCode::Space) {
+            // side_force.x -= sidef_mag
+            let s = 10.0;
+            commands.spawn(SpriteBundle {
+                material: materials.add(Color::rgb(1.0, 1.0, 0.8).into()),
+                // transform: Transform::from_translation(Vec3::new(0.0, -415.0, 0.0)),
+                sprite: Sprite::new(Vec2::new(s, s)),
+                ..Default::default()
+            })
+                .with(RigidBodyBuilder::new_dynamic()
+                    .mass(0.1)
+                    // TODO @darzu: translate to player
+                    // .translation()
+                )
+                .with(Blob)
+                .with(
+                    ColliderBuilder::cuboid(s / 2.0 / rapier_config.scale, s / 2.0/rapier_config.scale)
+                    .friction(0.2));
+        }
+    }
+}
+
+fn player_move(
     keyboard_input: Res<Input<KeyCode>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     query: Query<(&Player, &RigidBodyHandleComponent)>
@@ -94,13 +127,13 @@ fn move_player(
         let sidef_mag = 200.0 * phys_scal;
         let frig_s = 10.0 * phys_scal;
         let jump_mag = 15.0 * phys_scal;
-        if keyboard_input.just_pressed(KeyCode::Up) {
+        if keyboard_input.just_pressed(KeyCode::W) {
             jump_force.y += jump_mag;
         }
-        if keyboard_input.pressed(KeyCode::Left) {
+        if keyboard_input.pressed(KeyCode::A) {
             side_force.x -= sidef_mag
         }
-        if keyboard_input.pressed(KeyCode::Right) {
+        if keyboard_input.pressed(KeyCode::D) {
             side_force.x += sidef_mag
         }
         if jump_force.magnitude_squared() > 0.0 {
@@ -127,7 +160,8 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin)
         // .add_plugin(RapierRenderPlugin)
         .add_startup_system(setup.system())
-        .add_system(move_player.system())
+        .add_system(player_move.system())
+        .add_system(player_fight.system())
         // .add_system(physics.system())
         .run();
 }
