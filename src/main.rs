@@ -11,9 +11,11 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
          ) {
 
     rapier_config.scale = 20.0;
+    rapier_config.gravity = Vector2::zeros();
+    // commands.spawn(Camera3dBundle::default());
     commands.spawn(Camera2dBundle::default());
 
-    let block_mat = materials.add(Color::rgb(0.0, 1.0, 0.0).into());
+    let block_mat = materials.add(Color::rgba(0.0, 1.0, 0.0, 0.0).into());
     let block = |cmd: &mut Commands, x: f32, y: f32, w: f32, h: f32| {
         cmd.spawn(SpriteBundle {
             material: block_mat.clone(),
@@ -25,26 +27,32 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
         .with(ColliderBuilder::cuboid(w / 2.0 / rapier_config.scale, h / 2.0 / rapier_config.scale));
     };
 
-    let psize = 30.0;
-    for i in 0..100 {
-        let i = i as f32 / 100.0;
-        commands.spawn(SpriteBundle {
-            material: materials.add(Color::rgb(i, 1.0 - i, 1.0).into()),
-            // transform: Transform::from_translation(Vec3::new(0.0, -415.0, 0.0)),
-            sprite: Sprite::new(Vec2::new(psize, psize)),
-            ..Default::default()
-        })
-            .with(RigidBodyBuilder::new_dynamic())
-                .with(Player)
-            .with(ColliderBuilder::cuboid(psize / 2.0 / rapier_config.scale, psize / 2.0/rapier_config.scale));
+    let pnum = 50;
+    let psize = 12.0;
+    for x in 0..pnum {
+        for y in 0..pnum {
+            let c = (x + y*pnum) as f32 / (pnum*pnum) as f32;
+            // let s = psize + psize * c * 2.0;
+            let s = psize;
+            commands.spawn(SpriteBundle {
+                material: materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
+                // transform: Transform::from_translation(Vec3::new(0.0, -415.0, 0.0)),
+                sprite: Sprite::new(Vec2::new(s, s)),
+                ..Default::default()
+            })
+                .with(RigidBodyBuilder::new_dynamic().translation((x - pnum/2) as f32 *s  /rapier_config.scale,(y - pnum/2) as f32 *s /rapier_config.scale))
+                    .with(Player)
+                // .with(ColliderBuilder::ball(s / 2.0 / rapier_config.scale));
+                .with(ColliderBuilder::cuboid(s / 2.0 / rapier_config.scale, s / 2.0/rapier_config.scale));
+        }
     }
 
-    commands.with(Player);
+    // commands.with(Player);
 
-    block(commands, 0.0, -200.0, 1000.0, 10.0);
-    block(commands, 0.0, 200.0, 1000.0, 10.0);
-    block(commands, -200.0, 0.0, 10.0, 1000.0);
-    block(commands, 200.0, 0.0, 10.0, 1000.0);
+    block(commands, 0.0, -400.0, 2000.0, 100.0);
+    block(commands, 0.0, 400.0, 2000.0, 100.0);
+    block(commands, -600.0, 0.0, 100.0, 2000.0);
+    block(commands, 600.0, 0.0, 100.0, 2000.0);
 }
 
 #[derive(Default)]
@@ -53,8 +61,8 @@ struct Velocity(Vec2);
 #[derive(Default)]
 struct Force(Vec2);
 
-fn physics( 
-    time: Res<Time>, 
+fn physics(
+    time: Res<Time>,
     mut query: Query<(&mut Transform, &mut Velocity, Option<&mut Force>)>
 ) {
     for (mut transform, mut vel, force) in query.iter_mut() {
@@ -68,21 +76,23 @@ fn physics(
 fn move_player(
     keyboard_input: Res<Input<KeyCode>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
-    mut query: Query<(&Player, &RigidBodyHandleComponent)>
+    query: Query<(&Player, &RigidBodyHandleComponent)>
 ) {
-    for (_player, rb_comp) in query.iter_mut() {
+    for (_player, rb_comp) in query.iter() {
         let mut force = Vector2::zeros();
+        let mag = 0.2;
+        // let mag = 0.02;
         if keyboard_input.pressed(KeyCode::Up) {
-            force.y += 5.0;
+            force.y += mag;
         }
         if keyboard_input.pressed(KeyCode::Down) {
-            force.y -= 5.0;
+            force.y -= mag;
         }
         if keyboard_input.pressed(KeyCode::Left) {
-            force.x -= 5.0;
+            force.x -= mag;
         }
         if keyboard_input.pressed(KeyCode::Right) {
-            force.x += 5.0;
+            force.x += mag;
         }
         let rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
         rb.apply_impulse(force, true);
