@@ -60,7 +60,7 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
                 ..Default::default()
             })
                 .with(RigidBodyBuilder::new_dynamic()
-                    .mass(0.2)
+                    .mass(0.1)
                     .translation(xf - pnumf * 0.5 + yf * 0.2 *s  /rapier_config.scale,(y - pnum/2) as f32 *s /rapier_config.scale))
                 .with(Blob)
                 .with(ColliderBuilder::cuboid(s / 2.0 / rapier_config.scale, s / 2.0/rapier_config.scale));
