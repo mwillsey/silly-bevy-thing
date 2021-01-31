@@ -1,55 +1,160 @@
-use std::todo;
+use std::collections::HashMap;
 
 use bevy::prelude::*;
-use bevy_rapier2d::{physics::*, rapier::geometry::InteractionGroups};
+use bevy_rapier2d::{physics::*, rapier::{self, geometry::{ColliderHandle, ColliderSet, InteractionGroups, NarrowPhase}, parry::partitioning::IndexedData}};
 use bevy_rapier2d::rapier::{dynamics::*, geometry::ColliderBuilder};
 use bevy_rapier2d::rapier::na::Vector2;
 
 struct Player;
 struct Blob;
+struct Hitbox;
 
 const WRLD_GRP: u16 = 0b1000000000000000;
 const PLYR_GRP: u16 = 0b0100000000000000;
 const BLOB_GRP: u16 = 0b0010000000000000;
 const ALL_GRP: u16 = u16::MAX;
 
+const SCALE: f32 = 20.0;
+
+#[derive(Bundle)]
+struct BoxBundle {
+    sprite_bundle: SpriteBundle,
+    rb: RigidBodyBuilder,
+    col: ColliderBuilder,
+}
+
+// struct BoxBundleBuilder {
+//     x: f32,
+//     y: f32,
+//     w: f32,
+//     h: f32,
+//     material: Handle<ColorMaterial>,
+//     scale: f32,
+// }
+
+fn spawn<'a>(
+    cmd: &'a mut Commands, 
+    materials: &mut Assets<ColorMaterial>,
+    color: Color,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    rig_cb: impl FnMut(RigidBodyBuilder) -> RigidBodyBuilder,
+    col_cb: impl FnMut(ColliderBuilder) -> ColliderBuilder,
+) -> &'a mut Commands {
+    let cmd = cmd.spawn(SpriteBundle {
+        material: materials.add(color.into()),
+        sprite: Sprite::new(Vec2::new(w, h)),
+        ..Default::default()
+    })
+    .with(RigidBodyBuilder::new_dynamic()
+        .translation(x / SCALE, y / SCALE)
+    );
+    let ent = cmd.current_entity().unwrap();
+    cmd.with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
+        .user_data(ent.to_bits() as u128)
+    )
+    // cmd.spawn(BoxBundle {
+    //     sprite_bundle: SpriteBundle {
+    //         material: materials.add(color.into()),
+    //         sprite: Sprite::new(Vec2::new(w, h)),
+    //         ..Default::default()
+    //     },
+    //     rb: RigidBodyBuilder::new_dynamic()
+    //         .translation(x / SCALE, y / SCALE),
+    //     col: ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
+    // })
+}
+
+fn spawnStatic<'a>(
+    cmd: &'a mut Commands, 
+    materials: &mut Assets<ColorMaterial>,
+    color: Color,
+    x: f32,
+    y: f32,
+    w: f32,
+    h: f32,
+    rig_cb: impl FnMut(RigidBodyBuilder) -> RigidBodyBuilder,
+    col_cb: impl FnMut(ColliderBuilder) -> ColliderBuilder,
+) -> &'a mut Commands {
+    let cmd = cmd.spawn(SpriteBundle {
+        material: materials.add(color.into()),
+        sprite: Sprite::new(Vec2::new(w, h)),
+        ..Default::default()
+    })
+    .with(RigidBodyBuilder::new_static()
+        .translation(x / SCALE, y / SCALE)
+    );
+    let ent = cmd.current_entity().unwrap();
+    cmd.with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
+        .user_data(ent.to_bits() as u128)
+    )
+}
+
 fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
          mut rapier_config: ResMut<RapierConfiguration>,
          ) {
 
-    rapier_config.scale = 20.0;
+    rapier_config.scale = SCALE;
     rapier_config.gravity = Vector2::new(0.0, -100.0);
     commands.spawn(Camera2dBundle::default());
 
+    // let block_color = Color::rgba(0.0, 1.0, 0.0, 0.2);
     let block_mat = materials.add(Color::rgba(0.0, 1.0, 0.0, 0.2).into());
-    let block = |cmd: &mut Commands, x: f32, y: f32, w: f32, h: f32| {
+    let block = |cmd: &mut Commands,
+                // materials: &mut Assets<ColorMaterial>,
+                // rapier_config: &mut RapierConfiguration,
+                x: f32, y: f32, w: f32, h: f32| {
         cmd.spawn(SpriteBundle {
             material: block_mat.clone(),
             // transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
             sprite: Sprite::new(Vec2::new(w, h)),
             ..Default::default()
         })
-        .with(RigidBodyBuilder::new_static().translation(x / rapier_config.scale, y / rapier_config.scale))
-        .with(ColliderBuilder::cuboid(w / 2.0 / rapier_config.scale, h / 2.0 / rapier_config.scale)
+        .with(RigidBodyBuilder::new_static().translation(x / SCALE, y / SCALE))
+        .with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
             .collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
-        )   
-        // .with(Msaa::default())
-        ;
+        );
+        // spawnStatic(commands, materials, rapier_config,
+        //     block_color,
+        //     x, y,
+        //     w, h,
+        //     |rig| {
+        //         rig
+        //     },
+        //     |col| {
+        //         col.collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
+        //     },
+        // )
+        // // .with(Msaa::default())
+        // ;
     };
 
     let player_size = 20.0;
-    commands.spawn(SpriteBundle {
-        material: materials.add(Color::rgb(0.1, 0.9, 1.0).into()),
-        sprite: Sprite::new(Vec2::new(player_size, player_size)),
-        ..Default::default()
-    })
-        .with(RigidBodyBuilder::new_dynamic()
-            .mass(1.0)
-            .translation(0.0, 10.0))
-        .with(Player)
-        .with(ColliderBuilder::cuboid(player_size / 2.0 / rapier_config.scale, player_size / 2.0/rapier_config.scale)
-            .collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
-        );
+    // commands.spawn(SpriteBundle {
+    //     material: materials.add(Color::rgb(0.1, 0.9, 1.0).into()),
+    //     sprite: Sprite::new(Vec2::new(player_size, player_size)),
+    //     ..Default::default()
+    // })
+    //     .with(RigidBodyBuilder::new_dynamic()
+    //         .mass(1.0)
+    //         .translation(0.0, 10.0))
+    //     .with(Player)
+    //     .with(ColliderBuilder::cuboid(player_size / 2.0 / SCALE, player_size / 2.0/SCALE)
+    //         .collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
+    //     );
+    spawn(commands, &mut materials,
+        Color::rgb(0.1, 0.9, 1.0),
+        0.0, 10.0,
+        player_size, player_size,
+        |rig: RigidBodyBuilder| {
+            rig.mass(1.0)
+        },
+        |col: ColliderBuilder| {
+            col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
+        },
+    ).with(Player);
 
     let pnum = 4;
     let psize = 50.0;
@@ -61,27 +166,45 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
             let pnumf = pnum as f32;
             // let s = psize + psize * c * 2.0;
             let s = psize;
-            commands.spawn(SpriteBundle {
-                material: materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
-                // transform: Transform::from_translation(Vec3::new(0.0, -415.0, 0.0)),
-                sprite: Sprite::new(Vec2::new(s, s)),
-                ..Default::default()
-            })
-                .with(RigidBodyBuilder::new_dynamic()
-                    .mass(0.1)
-                    .translation(xf - pnumf * 0.5 + yf * 0.2 *s  /rapier_config.scale,(y - pnum/2) as f32 *s /rapier_config.scale))
-                .with(Blob)
-                .with(
-                    ColliderBuilder::cuboid(s / 2.0 / rapier_config.scale, s / 2.0/rapier_config.scale)
-                    .friction(0.2)
-                    .collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
-                );
+            // let ent = commands.spawn(SpriteBundle {
+            //     material: materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
+            //     // transform: Transform::from_translation(Vec3::new(0.0, -415.0, 0.0)),
+            //     sprite: Sprite::new(Vec2::new(s, s)),
+            //     ..Default::default()
+            // }).current_entity().unwrap();
+            // commands
+            //     .with(RigidBodyBuilder::new_dynamic()
+            //         .mass(0.1)
+            //         .translation(xf - pnumf * 0.5 + yf * 0.2 *s  /SCALE,(y - pnum/2) as f32 *s /SCALE))
+            //     .with(Blob)
+            //     .with(
+            //         ColliderBuilder::cuboid(s / 2.0 / SCALE, s / 2.0/SCALE)
+            //         .friction(0.2)
+            //         .user_data(ent.to_bits() as u128)
+            //         .collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
+            //     );
+            spawn(commands, &mut materials,
+                Color::rgb(c, 1.0 - c, 1.0),
+                xf - pnumf * 0.5 + yf * 0.2 *s  /SCALE,(y - pnum/2) as f32 *s /SCALE,
+                s, s,
+                |rig: RigidBodyBuilder| {
+                    rig.mass(0.1)
+                },
+                |col: ColliderBuilder| {
+                    col.collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
+                        .friction(0.2)
+                },
+            ).with(Blob);
         }
     }
     block(commands, 0.0, -200.0, 2000.0, 100.0);
     block(commands, 0.0, 400.0, 2000.0, 100.0);
     block(commands, -600.0, 0.0, 100.0, 2000.0);
     block(commands, 600.0, 0.0, 100.0, 2000.0);
+    // block(commands, materials, rapier_config, 0.0, -200.0, 2000.0, 100.0);
+    // block(commands, materials, rapier_config, 0.0, 400.0, 2000.0, 100.0);
+    // block(commands, materials, rapier_config, -600.0, 0.0, 100.0, 2000.0);
+    // block(commands, materials, rapier_config, 600.0, 0.0, 100.0, 2000.0);
 }
 
 #[derive(Default)]
@@ -90,16 +213,15 @@ struct Velocity(Vec2);
 #[derive(Default)]
 struct Force(Vec2);
 
-fn player_fight(
+fn player_shoot(
     keyboard_input: Res<Input<KeyCode>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut rapier_config: ResMut<RapierConfiguration>,
     query: Query<(Entity, &RigidBodyHandleComponent), With<Player>>
 ) {
     for (player, rb_comp) in query.iter() {
-        if keyboard_input.pressed(KeyCode::Space) {
+        if keyboard_input.pressed(KeyCode::F) {
             let player_rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
 
             // side_force.x -= sidef_mag
@@ -127,17 +249,70 @@ fn player_fight(
             })
                 // .with(Parent(player))
                 .with(rb)
-                .with(Blob)
+                .with(Hitbox)
                 .with(
-                    ColliderBuilder::cuboid(s / 2.0 / rapier_config.scale, s / 2.0/rapier_config.scale)
+                    ColliderBuilder::cuboid(s / 2.0 / SCALE, s / 2.0/SCALE)
                     .collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP & !PLYR_GRP))
-                    // .sensor(true)
+                    .sensor(true)
                 )
                 .with(Despawn::after(1.0))
                 ;
         }
     }
 }
+
+fn punch_hit(
+    mut col_bodies: ResMut<ColliderSet>,
+    mut rigid_bodies: ResMut<RigidBodySet>,
+    commands: &mut Commands,
+    hitboxes: Query<(Entity, &RigidBodyHandleComponent, &ColliderHandleComponent), With<Hitbox>>,
+    blobs: Query<(Entity, &RigidBodyHandleComponent, &ColliderHandleComponent), With<Blob>>,
+    narrow: NarrowPhase,
+) {
+    for (hb, hb_rb_comp, hb_col_comp) in hitboxes.iter() {
+        let hb_rb = rigid_bodies.get_mut(hb_rb_comp.handle()).unwrap();
+        for (blob, blob_rb_comp, blob_col_comp) in blobs.iter() {
+            if let Some(true) = narrow.intersection_pair(hb_col_comp.handle(), blob_col_comp.handle()) {
+                println!("POW!");
+            }
+        }
+    }
+}
+
+fn print_events(
+    events: Res<EventQueue>,
+    mut col_bodies: ResMut<ColliderSet>,
+    mut rigid_bodies: ResMut<RigidBodySet>,
+) {
+    // while let Ok(inter_event) = events.intersection_events.pop() {
+    //     let col = col_bodies.get_mut(inter_event.collider1).unwrap();
+    //     let rb = rigid_bodies.get_mut(col.parent()).unwrap();
+    //     // col.parent()
+    //     // println!("Received contact event: {:?}", inter_event);
+    // }
+}
+
+struct Collisions(Vec<Entity>);
+struct Intersections(Vec<Entity>);
+
+// fn find_collisions(
+//     events: Res<EventQueue>,
+//     mut query: Query<(Entity, &ColliderHandleComponent, Option<&mut Collisions>, Option<&mut Intersections>)>,
+// ) {
+//     let map: HashMap<ColliderHandle, _> = query.iter().map(|(e, h, c, i)| {
+//         (h.handle(), (e, c, i))
+//     }).collect();
+//     while let Ok(inter) = events.intersection_events.pop() {
+//         // if inter.intersecting {
+//         //     let e1 = map[inter.collider1];
+//         //     let e2 = map[inter.collider2];
+//         // }
+//         // let col = col_bodies.get_mut(inter_event.collider1).unwrap();
+//         // let rb = rigid_bodies.get_mut(col.parent()).unwrap();
+//         // col.parent()
+//         // println!("Received contact event: {:?}", inter_event);
+//     }
+// }
 
 fn player_move(
     keyboard_input: Res<Input<KeyCode>>,
@@ -224,8 +399,9 @@ fn main() {
         // .add_plugin(RapierRenderPlugin)
         .add_startup_system(setup.system())
         .add_system(player_move.system())
-        .add_system(player_fight.system())
+        .add_system(player_shoot.system())
         .add_system(despawn_system.system())
+        .add_system(print_events.system())
         // .add_system(physics.system())
         .run();
 }
