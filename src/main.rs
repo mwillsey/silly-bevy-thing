@@ -98,9 +98,9 @@ fn player_fight(
                 ..Default::default()
             })
                 .with(RigidBodyBuilder::new_dynamic()
-                    .mass(0.1)
+                    .mass(0.01)
                     // TODO @darzu: translate to player
-                    // .translation()
+                    .translation(0.0, 20.0)
                 )
                 .with(Blob)
                 .with(
