@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use bevy::prelude::*;
-use bevy_rapier2d::rapier::na::Vector2;
+use bevy_rapier2d::rapier::{geometry::ColliderSet, na::Vector2};
 use bevy_rapier2d::rapier::{dynamics::*, geometry::ColliderBuilder};
 use bevy_rapier2d::{
     physics::*,
@@ -19,7 +19,9 @@ struct Player {
     dir_x: f32,
 }
 struct Blob;
-struct HitBox;
+struct HitBox {
+    dir_x: f32,
+}
 
 const WRLD_GRP: u16 = 0b1000000000000000;
 const PLYR_GRP: u16 = 0b0100000000000000;
@@ -196,7 +198,7 @@ fn player_shoot(
                     },
                 )
                 .with(Despawn::after(0.1))
-                .with(HitBox)
+                .with(HitBox { dir_x: player.dir_x })
                 .with(Intersections::default());
             }
         }
@@ -249,24 +251,35 @@ fn clear_collisions(
     }
 }
 
+macro_rules! subquery {
+    ($ids:expr, $query:expr) => {
+        $ids.iter().filter_map(|id| $query.get(*id).ok())
+    };
+}
+
 fn do_punch(
     commands: &mut Commands,
     mut rigid_bodies: ResMut<RigidBodySet>,
-    hitboxes: Query<(Entity, &Intersections), With<HitBox>>,
+    // mut col_bodies: ResMut<ColliderSet>,
+    hitboxes: Query<(Entity, &Intersections, &HitBox)>,
     blobs: Query<(Entity, &RigidBodyHandleComponent), With<Blob>>,
 ) {
     // build map of Entity -> blobs
-    for (hb_ent, collisions) in hitboxes.iter() {
-        for &ent in collisions.0.iter() {
-            if let Ok((_, blob_rb_comp)) = blobs.get(ent) {
-                // hb collided with blob_ent
-                // do punch
-                let blob_rb = rigid_bodies.get_mut(blob_rb_comp.handle()).unwrap();
-                blob_rb.apply_impulse(Vector2::new(0.0, 200.0), true);
+    for (hb_ent, collisions, hb) in hitboxes.iter() {
+        for (_, blob_rb_comp) in subquery!(collisions.0, blobs) {
+            // hb collided with blob_ent
+            // let hb_col = col_bodies.get_mut(hb_col_comp.handle()).unwrap();
+            // let hb_col = col_bodies.get_mut(hb_col_comp.handle()).unwrap();
+            // hb_col.
+            
+            // do punch
+            let blob_rb = rigid_bodies.get_mut(blob_rb_comp.handle()).unwrap();
+            // if let cub hb_col.shape().
+            
+            blob_rb.apply_impulse(Vector2::new(hb.dir_x * 50.0, 200.0), true);
 
-                // despawn
-                commands.despawn(hb_ent);
-            }
+            // despawn
+            commands.despawn(hb_ent);
         }
     }
 }
