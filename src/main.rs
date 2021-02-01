@@ -1,13 +1,21 @@
 use std::{collections::HashMap, todo};
 
 use bevy::prelude::*;
-use bevy_rapier2d::{physics::*, rapier::{self, geometry::{ColliderHandle, ColliderSet, InteractionGroups, NarrowPhase}, parry::partitioning::IndexedData}};
+use bevy_rapier2d::{physics::*, rapier::{self, geometry::{ColliderHandle, ColliderSet, ContactEvent, InteractionGroups, NarrowPhase}, math::Point, parry::partitioning::IndexedData}};
 use bevy_rapier2d::rapier::{dynamics::*, geometry::ColliderBuilder};
 use bevy_rapier2d::rapier::na::Vector2;
 
-struct Player;
+/*
+NOTES:
+https://discord.com/channels/507548572338880513/748627261384556715
+https://github.com/bevyengine/awesome-bevy
+*/
+
+struct Player {
+    nextFire: f64,
+}
 struct Blob;
-struct Hitbox;
+struct HitBox;
 
 const WRLD_GRP: u16 = 0b1000000000000000;
 const PLYR_GRP: u16 = 0b0100000000000000;
@@ -125,7 +133,9 @@ fn setup(
         |col| {
             col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
         },
-    ).with(Player);
+    ).with(Player {
+        nextFire: 0.0
+    });
 
     // blobs
     let blob_num = 4;
@@ -149,7 +159,9 @@ fn setup(
                     col.collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
                         .friction(0.2)
                 },
-            ).with(Blob);
+            )
+                .with(Blob)
+                ;
         }
     }
 }
@@ -162,38 +174,43 @@ struct Force(Vec2);
 
 fn player_shoot(
     keyboard_input: Res<Input<KeyCode>>,
+    time: Res<Time>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    query: Query<(Entity, &RigidBodyHandleComponent), With<Player>>
+    mut query: Query<(&mut Player, &RigidBodyHandleComponent)>,
 ) {
-    for (player, rb_comp) in query.iter() {
+    for (mut player, rb_comp) in query.iter_mut() {
         if keyboard_input.pressed(KeyCode::F) {
-            let player_rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
-            let s = 10.0;
-            let y = player_rb.position().translation.y * SCALE;
-            let x = player_rb.position().translation.x * SCALE;
-            
-            let v = if player_rb.linvel().x > 0.0 {5.0} else {-5.0};
+            if player.nextFire < time.seconds_since_startup() {
+                player.nextFire = time.seconds_since_startup() + 1.0;
+                
+                let player_rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
+                let s = 10.0;
+                let y = player_rb.position().translation.y * SCALE;
+                let x = player_rb.position().translation.x * SCALE;
+                let v = if player_rb.linvel().x > 0.0 {5.0} else {-5.0};
 
-            spawnBox(commands,
-                materials.add(Color::rgb(1.0, 1.0, 0.8).into()),
-                x, y,
-                s, s,
-                true,
-                |rg| {
-                    rg.gravity_scale(0.0)
-                        .mass(10.0)
-                        .linvel(player_rb.linvel().x + v, 0.0)
-                },
-                |col| {
-                    col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP & !PLYR_GRP))
-                        // .sensor(true)
-                },
-            )
-                .with(Despawn::after(1.0))
-                .with(Hitbox)
-                ;
+                spawnBox(commands,
+                    materials.add(Color::rgb(1.0, 1.0, 0.8).into()),
+                    x, y,
+                    s, s,
+                    true,
+                    |rg| {
+                        rg.gravity_scale(0.0)
+                            .mass(10.0)
+                            .linvel(player_rb.linvel().x + v, 0.0)
+                    },
+                    |col| {
+                        col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP & !PLYR_GRP))
+                            // .sensor(true)
+                    },
+                )
+                    .with(Despawn::after(1.0))
+                    .with(HitBox)
+                    .with(Collisions::default())
+                    ;
+            }
         }
     }
 }
@@ -202,7 +219,7 @@ fn punch_hit(
     mut col_bodies: ResMut<ColliderSet>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     commands: &mut Commands,
-    hitboxes: Query<(Entity, &RigidBodyHandleComponent, &ColliderHandleComponent), With<Hitbox>>,
+    hitboxes: Query<(Entity, &RigidBodyHandleComponent, &ColliderHandleComponent), With<HitBox>>,
     blobs: Query<(Entity, &RigidBodyHandleComponent, &ColliderHandleComponent), With<Blob>>,
     narrow: NarrowPhase,
 ) {
@@ -229,27 +246,69 @@ fn print_events(
     // }
 }
 
+#[derive(Default)]
 struct Collisions(Vec<Entity>);
+#[derive(Default)]
 struct Intersections(Vec<Entity>);
 
-// fn find_collisions(
-//     events: Res<EventQueue>,
-//     mut query: Query<(Entity, &ColliderHandleComponent, Option<&mut Collisions>, Option<&mut Intersections>)>,
-// ) {
-//     let map: HashMap<ColliderHandle, _> = query.iter().map(|(e, h, c, i)| {
-//         (h.handle(), (e, c, i))
-//     }).collect();
-//     while let Ok(inter) = events.intersection_events.pop() {
-//         // if inter.intersecting {
-//         //     let e1 = map[inter.collider1];
-//         //     let e2 = map[inter.collider2];
-//         // }
-//         // let col = col_bodies.get_mut(inter_event.collider1).unwrap();
-//         // let rb = rigid_bodies.get_mut(col.parent()).unwrap();
-//         // col.parent()
-//         // println!("Received contact event: {:?}", inter_event);
-//     }
-// }
+fn find_collisions(
+    events: Res<EventQueue>,
+    mut handles: Query<(Entity, &ColliderHandleComponent)>,
+    mut collisions: Query<&mut Collisions>,
+    mut intersections: Query<&mut Intersections>,
+) {
+    let map: HashMap<ColliderHandle, _> = handles.iter().map(|(e, h)| {
+        (h.handle(), e)
+    }).collect();
+    while let Ok(ContactEvent::Started(c1, c2)) = events.contact_events.pop() {
+        if let (Some(&e1), Some(&e2)) = (map.get(&c1), map.get(&c2)) {
+            collisions.get_mut(e1).map(|mut ids| ids.0.push(e2));
+            collisions.get_mut(e2).map(|mut ids| ids.0.push(e1));
+        }
+    }
+    while let Ok(inter) = events.intersection_events.pop() {
+        if let (Some(&e1), Some(&e2)) = (map.get(&inter.collider1), map.get(&inter.collider2)) {
+            intersections.get_mut(e1).map(|mut ids| ids.0.push(e2));
+            intersections.get_mut(e2).map(|mut ids| ids.0.push(e1));
+        }
+    }
+}
+
+fn clear_collisions(
+    mut collisions: Query<&mut Collisions>,
+    mut intersections: Query<&mut Intersections>,
+) {
+    for mut c in collisions.iter_mut() {
+        c.0.clear()
+    }
+    for mut i in intersections.iter_mut() {
+        i.0.clear()
+    }
+}
+
+fn do_punch(
+    commands: &mut Commands,
+    mut rigid_bodies: ResMut<RigidBodySet>,
+    mut hitboxes: Query<(Entity, &Collisions), With<HitBox>>,
+    mut blobs: Query<(Entity, &RigidBodyHandleComponent), With<Blob>>,
+) {
+    // build map of Entity -> blobs
+    // let blob_map: HashMap<Entity, _> = blobs.iter().map(|tup| (tup.0, tup)).collect();
+    for (hb_ent, collisions) in hitboxes.iter() {
+        for &ent in collisions.0.iter() {
+            if let Ok((_, blob_rb_comp)) = blobs.get(ent) {
+                // hb collided with blob_ent
+                // do punch
+                let blob_rb = rigid_bodies.get_mut(blob_rb_comp.handle()).unwrap();
+                blob_rb.apply_impulse(Vector2::new(0.0, 200.0), true);
+
+                // despawn
+                commands.despawn(hb_ent);
+                break;
+            }
+        }
+    }
+}
 
 fn player_move(
     keyboard_input: Res<Input<KeyCode>>,
@@ -338,6 +397,8 @@ fn main() {
         .add_system(player_shoot.system())
         .add_system(despawn_system.system())
         .add_system(print_events.system())
-        // .add_system(physics.system())
+        .add_system_to_stage(stage::PRE_UPDATE, find_collisions.system())
+        .add_system(do_punch.system())
+        .add_system_to_stage(stage::LAST, clear_collisions.system())
         .run();
 }
