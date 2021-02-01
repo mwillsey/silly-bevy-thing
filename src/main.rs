@@ -106,7 +106,7 @@ fn setup(
     spawn_box(
         commands,
         // Color::rgb(0.1, 0.9, 1.0),
-        materials.add(Color::rgb(0.1, 0.9, 1.0).into()),
+        materials.add(Color::rgb(0.2, 0.9, 0.8).into()),
         0.0,
         10.0,
         player_size,
@@ -133,6 +133,7 @@ fn setup(
             spawn_box(
                 commands,
                 materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
+                // materials.add(Color::rgb(0.0, 1.0, 1.0).into()),
                 xf - pnumf * 0.5 + yf * 0.2 * s / SCALE,
                 (y - blob_num / 2) as f32 * s / SCALE,
                 s,
@@ -144,7 +145,9 @@ fn setup(
                         .friction(0.2)
                 },
             )
-            .with(Blob);
+            .with(Blob)
+            .with(Health { health: 10 })
+            ;
         }
     }
 }
@@ -251,35 +254,53 @@ fn clear_collisions(
     }
 }
 
-macro_rules! subquery {
-    ($ids:expr, $query:expr) => {
-        $ids.iter().filter_map(|id| $query.get(*id).ok())
-    };
-}
+// macro_rules! subquery {
+//     // ($ids:expr, $query:expr) => {
+//     //     $ids.iter().filter_map(|id| $query.get(*id).ok())
+//     // };
+//     ($ids:expr, mut $query:expr) => {
+//         $ids.iter().filter_map(|id| $query.get_mut(*id).ok())
+//     };
+// }
 
 fn do_punch(
     commands: &mut Commands,
     mut rigid_bodies: ResMut<RigidBodySet>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     // mut col_bodies: ResMut<ColliderSet>,
     hitboxes: Query<(Entity, &Intersections, &HitBox)>,
-    blobs: Query<(Entity, &RigidBodyHandleComponent), With<Blob>>,
+    mut blobs: Query<(Entity, &RigidBodyHandleComponent, &mut Health, &Handle<ColorMaterial>), With<Blob>>,
 ) {
     // build map of Entity -> blobs
     for (hb_ent, collisions, hb) in hitboxes.iter() {
-        for (_, blob_rb_comp) in subquery!(collisions.0, blobs) {
-            // hb collided with blob_ent
-            // let hb_col = col_bodies.get_mut(hb_col_comp.handle()).unwrap();
-            // let hb_col = col_bodies.get_mut(hb_col_comp.handle()).unwrap();
-            // hb_col.
-            
-            // do punch
-            let blob_rb = rigid_bodies.get_mut(blob_rb_comp.handle()).unwrap();
-            // if let cub hb_col.shape().
-            
-            blob_rb.apply_impulse(Vector2::new(hb.dir_x * 50.0, 200.0), true);
+        //(_, blob_rb_comp, blob)
+        for &id in collisions.0.iter() {
+            if let Ok((_, blob_rb_comp, mut blob_health, blob_color_comp)) = blobs.get_mut(id) {
+                // hb collided with blob_ent
+                // let hb_col = col_bodies.get_mut(hb_col_comp.handle()).unwrap();
+                // let hb_col = col_bodies.get_mut(hb_col_comp.handle()).unwrap();
+                // hb_col.
+                
+                // do punch
+                let blob_rb = rigid_bodies.get_mut(blob_rb_comp.handle()).unwrap();
+                // if let cub hb_col.shape().
+                
+                blob_rb.apply_impulse(Vector2::new(hb.dir_x * 50.0, 200.0), true);
+                blob_health.health -= 1;
 
-            // despawn
-            commands.despawn(hb_ent);
+                let hf = blob_health.health as f32 / 10.0;
+
+                let prev_color = materials.get(blob_color_comp).unwrap().color.clone();
+
+                materials.set(blob_color_comp, Color::rgba(prev_color.r(), prev_color.g(), prev_color.b(), hf).into());
+
+                // blob_color 
+                // materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
+
+                // despawn
+                commands.despawn(hb_ent);
+            }
+
         }
     }
 }
@@ -364,6 +385,29 @@ fn despawn_system(
     }
 }
 
+struct Health {
+    health: u32,
+}
+
+// impl Health {
+//     fn after(time: f32) -> Self {
+//         Self {
+//             timer: Timer::from_seconds(time, false),
+//         }
+//     }
+// }
+
+fn health_system(
+    commands: &mut Commands,
+    query: Query<(Entity, &Health)>,
+) {
+    for (entity, health) in query.iter() {
+        if health.health <= 0 {
+            commands.despawn(entity);
+        }
+    }
+}
+
 fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
@@ -372,6 +416,7 @@ fn main() {
         .add_system(player_move.system())
         .add_system(player_shoot.system())
         .add_system(despawn_system.system())
+        .add_system(health_system.system())
         .add_system_to_stage(stage::PRE_UPDATE, find_collisions.system())
         .add_system(do_punch.system())
         .add_system_to_stage(stage::LAST, clear_collisions.system())
