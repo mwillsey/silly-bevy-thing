@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, todo};
 
 use bevy::prelude::*;
 use bevy_rapier2d::{physics::*, rapier::{self, geometry::{ColliderHandle, ColliderSet, InteractionGroups, NarrowPhase}, parry::partitioning::IndexedData}};
@@ -32,64 +32,47 @@ struct BoxBundle {
 //     scale: f32,
 // }
 
+// struct SpawnArgs<R, C> {
+//     x: f32,
+//     y: f32,
+//     w: f32,
+//     h: f32,
+//     dynamic: bool,
+//     rig_cb: R,
+//     col_cb: C,
+// }
+
+// impl<R, C> Default for SpawnArgs<R, C> {
+//     fn default
+// }
+
 fn spawn<'a>(
     cmd: &'a mut Commands, 
-    materials: &mut Assets<ColorMaterial>,
-    color: Color,
+    material: Handle<ColorMaterial>, //materials: &mut Assets<ColorMaterial>,
+    // color: Color,
     x: f32,
     y: f32,
     w: f32,
     h: f32,
-    rig_cb: impl FnMut(RigidBodyBuilder) -> RigidBodyBuilder,
-    col_cb: impl FnMut(ColliderBuilder) -> ColliderBuilder,
+    dynamic: bool,
+    rig_cb: impl Fn(RigidBodyBuilder) -> RigidBodyBuilder,
+    col_cb: impl Fn(ColliderBuilder) -> ColliderBuilder,
 ) -> &'a mut Commands {
     let cmd = cmd.spawn(SpriteBundle {
-        material: materials.add(color.into()),
+        material: material,
         sprite: Sprite::new(Vec2::new(w, h)),
         ..Default::default()
-    })
-    .with(RigidBodyBuilder::new_dynamic()
-        .translation(x / SCALE, y / SCALE)
-    );
+    });
     let ent = cmd.current_entity().unwrap();
-    cmd.with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
-        .user_data(ent.to_bits() as u128)
-    )
-    // cmd.spawn(BoxBundle {
-    //     sprite_bundle: SpriteBundle {
-    //         material: materials.add(color.into()),
-    //         sprite: Sprite::new(Vec2::new(w, h)),
-    //         ..Default::default()
-    //     },
-    //     rb: RigidBodyBuilder::new_dynamic()
-    //         .translation(x / SCALE, y / SCALE),
-    //     col: ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
-    // })
-}
-
-fn spawnStatic<'a>(
-    cmd: &'a mut Commands, 
-    materials: &mut Assets<ColorMaterial>,
-    color: Color,
-    x: f32,
-    y: f32,
-    w: f32,
-    h: f32,
-    rig_cb: impl FnMut(RigidBodyBuilder) -> RigidBodyBuilder,
-    col_cb: impl FnMut(ColliderBuilder) -> ColliderBuilder,
-) -> &'a mut Commands {
-    let cmd = cmd.spawn(SpriteBundle {
-        material: materials.add(color.into()),
-        sprite: Sprite::new(Vec2::new(w, h)),
-        ..Default::default()
-    })
-    .with(RigidBodyBuilder::new_static()
-        .translation(x / SCALE, y / SCALE)
-    );
-    let ent = cmd.current_entity().unwrap();
-    cmd.with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
-        .user_data(ent.to_bits() as u128)
-    )
+    let rb = if dynamic { RigidBodyBuilder::new_dynamic() } else { RigidBodyBuilder::new_static() }
+        .translation(x / SCALE, y / SCALE);
+    let rb = rig_cb(rb);
+    let col = ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
+        .user_data(ent.to_bits() as u128);
+    let col = col_cb(col);
+    cmd
+        .with(rb)
+        .with(col)
 }
 
 fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
@@ -106,27 +89,28 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
                 // materials: &mut Assets<ColorMaterial>,
                 // rapier_config: &mut RapierConfiguration,
                 x: f32, y: f32, w: f32, h: f32| {
-        cmd.spawn(SpriteBundle {
-            material: block_mat.clone(),
-            // transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
-            sprite: Sprite::new(Vec2::new(w, h)),
-            ..Default::default()
-        })
-        .with(RigidBodyBuilder::new_static().translation(x / SCALE, y / SCALE))
-        .with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
-            .collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
+        // cmd.spawn(SpriteBundle {
+        //     material: block_mat.clone(),
+        //     // transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
+        //     sprite: Sprite::new(Vec2::new(w, h)),
+        //     ..Default::default()
+        // })
+        // .with(RigidBodyBuilder::new_static().translation(x / SCALE, y / SCALE))
+        // .with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
+        //     .collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
+        // );
+        spawn(cmd,
+            block_mat.clone(),
+            x, y,
+            w, h,
+            false,
+            |rig| {
+                rig
+            },
+            |col| {
+                col.collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
+            },
         );
-        // spawnStatic(commands, materials, rapier_config,
-        //     block_color,
-        //     x, y,
-        //     w, h,
-        //     |rig| {
-        //         rig
-        //     },
-        //     |col| {
-        //         col.collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
-        //     },
-        // )
         // // .with(Msaa::default())
         // ;
     };
@@ -144,10 +128,12 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
     //     .with(ColliderBuilder::cuboid(player_size / 2.0 / SCALE, player_size / 2.0/SCALE)
     //         .collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
     //     );
-    spawn(commands, &mut materials,
-        Color::rgb(0.1, 0.9, 1.0),
+    spawn(commands,
+        // Color::rgb(0.1, 0.9, 1.0),
+        materials.add(Color::rgb(0.1, 0.9, 1.0).into()),
         0.0, 10.0,
         player_size, player_size,
+        true,
         |rig: RigidBodyBuilder| {
             rig.mass(1.0)
         },
@@ -183,10 +169,11 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
             //         .user_data(ent.to_bits() as u128)
             //         .collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
             //     );
-            spawn(commands, &mut materials,
-                Color::rgb(c, 1.0 - c, 1.0),
+            spawn(commands,
+                materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
                 xf - pnumf * 0.5 + yf * 0.2 *s  /SCALE,(y - pnum/2) as f32 *s /SCALE,
                 s, s,
+                true,
                 |rig: RigidBodyBuilder| {
                     rig.mass(0.1)
                 },
