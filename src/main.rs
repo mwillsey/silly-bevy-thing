@@ -16,6 +16,7 @@ https://github.com/bevyengine/awesome-bevy
 
 struct Player {
     next_fire: f64,
+    dir_x: f32,
 }
 struct Blob;
 struct HitBox;
@@ -34,29 +35,6 @@ struct BoxBundle {
     rb: RigidBodyBuilder,
     col: ColliderBuilder,
 }
-
-// struct BoxBundleBuilder {
-//     x: f32,
-//     y: f32,
-//     w: f32,
-//     h: f32,
-//     material: Handle<ColorMaterial>,
-//     scale: f32,
-// }
-
-// struct SpawnArgs<R, C> {
-//     x: f32,
-//     y: f32,
-//     w: f32,
-//     h: f32,
-//     dynamic: bool,
-//     rig_cb: R,
-//     col_cb: C,
-// }
-
-// impl<R, C> Default for SpawnArgs<R, C> {
-//     fn default
-// }
 
 fn spawn_box<'a>(
     cmd: &'a mut Commands,
@@ -135,7 +113,10 @@ fn setup(
         |rig| rig.mass(1.0 * SCALE2),
         |col| col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP)),
     )
-    .with(Player { next_fire: 0.0 });
+    .with(Player { 
+        next_fire: 0.0, 
+        dir_x: 1.0 
+    });
 
     // blobs
     let blob_num = 4;
@@ -183,39 +164,40 @@ fn player_shoot(
     for (mut player, rb_comp) in query.iter_mut() {
         if keyboard_input.pressed(KeyCode::F) {
             if player.next_fire < time.seconds_since_startup() {
-                player.next_fire = time.seconds_since_startup() + 1.0;
+                player.next_fire = time.seconds_since_startup() + 0.5;
 
                 let player_rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
-                let s = 10.0;
+                let s = 40.0;
                 let y = player_rb.position().translation.y * SCALE;
                 let x = player_rb.position().translation.x * SCALE;
-                let v = if player_rb.linvel().x > 0.0 {
-                    5.0
-                } else {
-                    -5.0
-                };
+                let x_off = (s*0.5 + 10.0) * player.dir_x;
+                // let v = if player_rb.linvel().x > 0.0 {
+                //     5.0
+                // } else {
+                //     -5.0
+                // };
 
                 spawn_box(
                     commands,
-                    materials.add(Color::rgb(1.0, 1.0, 0.8).into()),
-                    x,
-                    y,
+                    materials.add(Color::rgba(1.0, 1.0, 1.0, 0.1).into()),
+                    x + x_off,
+                    y + 10.0*1.5,
                     s,
                     s,
                     true,
                     |rg| {
                         rg.gravity_scale(0.0)
-                            .mass(10.0)
-                            .linvel(player_rb.linvel().x + v, 0.0)
+                            // .mass(10.0)
+                            // .linvel(player_rb.linvel().x + v, 0.0)
                     },
                     |col| {
                         col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP & !PLYR_GRP))
-                        // .sensor(true)
+                            .sensor(true)
                     },
                 )
-                .with(Despawn::after(1.0))
+                .with(Despawn::after(0.1))
                 .with(HitBox)
-                .with(Collisions::default());
+                .with(Intersections::default());
             }
         }
     }
@@ -235,26 +217,22 @@ fn find_collisions(
     let map: HashMap<ColliderHandle, _> = handles.iter().map(|(e, h)| (h.handle(), e)).collect();
     while let Ok(ContactEvent::Started(c1, c2)) = events.contact_events.pop() {
         if let (Some(&e1), Some(&e2)) = (map.get(&c1), map.get(&c2)) {
-            collisions
-                .get_mut(e1)
-                .iter_mut()
-                .for_each(|ids| ids.0.push(e2));
-            collisions
-                .get_mut(e2)
-                .iter_mut()
-                .for_each(|ids| ids.0.push(e1));
+            if let Ok(mut ids) = collisions.get_mut(e1) {
+                ids.0.push(e2)
+            }
+            if let Ok(mut ids) = collisions.get_mut(e2) {
+                ids.0.push(e1)
+            }
         }
     }
     while let Ok(inter) = events.intersection_events.pop() {
         if let (Some(&e1), Some(&e2)) = (map.get(&inter.collider1), map.get(&inter.collider2)) {
-            intersections
-                .get_mut(e1)
-                .iter_mut()
-                .for_each(|ids| ids.0.push(e2));
-            intersections
-                .get_mut(e2)
-                .iter_mut()
-                .for_each(|ids| ids.0.push(e1));
+            if let Ok(mut ids) = intersections.get_mut(e1) {
+                ids.0.push(e2)
+            }
+            if let Ok(mut ids) = intersections.get_mut(e2) {
+                ids.0.push(e1)
+            }
         }
     }
 }
@@ -274,11 +252,10 @@ fn clear_collisions(
 fn do_punch(
     commands: &mut Commands,
     mut rigid_bodies: ResMut<RigidBodySet>,
-    hitboxes: Query<(Entity, &Collisions), With<HitBox>>,
+    hitboxes: Query<(Entity, &Intersections), With<HitBox>>,
     blobs: Query<(Entity, &RigidBodyHandleComponent), With<Blob>>,
 ) {
     // build map of Entity -> blobs
-    // let blob_map: HashMap<Entity, _> = blobs.iter().map(|tup| (tup.0, tup)).collect();
     for (hb_ent, collisions) in hitboxes.iter() {
         for &ent in collisions.0.iter() {
             if let Ok((_, blob_rb_comp)) = blobs.get(ent) {
@@ -289,7 +266,6 @@ fn do_punch(
 
                 // despawn
                 commands.despawn(hb_ent);
-                break;
             }
         }
     }
@@ -298,9 +274,9 @@ fn do_punch(
 fn player_move(
     keyboard_input: Res<Input<KeyCode>>,
     mut rigid_bodies: ResMut<RigidBodySet>,
-    query: Query<(&Player, &RigidBodyHandleComponent)>,
+    mut query: Query<(&mut Player, &RigidBodyHandleComponent)>,
 ) {
-    for (_player, rb_comp) in query.iter() {
+    for (mut player, rb_comp) in query.iter_mut() {
         let rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
 
         // constants
@@ -320,10 +296,12 @@ fn player_move(
             jump_force.y += jump_mag;
         }
         if keyboard_input.pressed(KeyCode::A) {
-            side_force.x -= sidef_mag
+            side_force.x -= sidef_mag;
+            player.dir_x = -1.0;
         }
         if keyboard_input.pressed(KeyCode::D) {
-            side_force.x += sidef_mag
+            side_force.x += sidef_mag;
+            player.dir_x = 1.0;
         }
         if keyboard_input.pressed(KeyCode::Q) {
             ang_vel += angf_mag
@@ -377,7 +355,6 @@ fn main() {
     App::build()
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin)
-        // .add_plugin(RapierRenderPlugin)
         .add_startup_system(setup.system())
         .add_system(player_move.system())
         .add_system(player_shoot.system())
