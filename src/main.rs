@@ -15,6 +15,7 @@ const BLOB_GRP: u16 = 0b0010000000000000;
 const ALL_GRP: u16 = u16::MAX;
 
 const SCALE: f32 = 20.0;
+const SCALE2: f32 = 1.0; // 20.0;
 
 #[derive(Bundle)]
 struct BoxBundle {
@@ -82,10 +83,14 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut rapier_config: ResMut<RapierConfiguration>,
 ) {
+    // global settings
     rapier_config.scale = SCALE;
-    rapier_config.gravity = Vector2::new(0.0, -100.0);
+    rapier_config.gravity = Vector2::new(0.0, -100.0 * SCALE2);
+
+    // camera
     commands.spawn(Camera2dBundle::default());
 
+    // world platforms
     let block_mat = materials.add(Color::rgba(0.0, 1.0, 0.0, 0.2).into());
     let block = |cmd: &mut Commands, x: f32, y: f32, w: f32, h: f32| {
         spawnBox(cmd,
@@ -106,6 +111,7 @@ fn setup(
     block(commands, -600.0, 0.0, 100.0, 2000.0);
     block(commands, 600.0, 0.0, 100.0, 2000.0);
 
+    // player
     let player_size = 20.0;
     spawnBox(commands,
         // Color::rgb(0.1, 0.9, 1.0),
@@ -114,13 +120,14 @@ fn setup(
         player_size, player_size,
         true,
         |rig| {
-            rig.mass(1.0)
+            rig.mass(1.0 * SCALE2)
         },
         |col| {
             col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
         },
     ).with(Player);
 
+    // blobs
     let blob_num = 4;
     let blob_size = 50.0;
     for x in 0..blob_num {
@@ -136,7 +143,7 @@ fn setup(
                 s, s,
                 true,
                 |rig| {
-                    rig.mass(0.1)
+                    rig.mass(0.1 * SCALE2)
                 },
                 |col| {
                     col.collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
@@ -163,8 +170,6 @@ fn player_shoot(
     for (player, rb_comp) in query.iter() {
         if keyboard_input.pressed(KeyCode::F) {
             let player_rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
-
-            // side_force.x -= sidef_mag
             let s = 10.0;
             let y = player_rb.position().translation.y * SCALE;
             let x = player_rb.position().translation.x * SCALE;
@@ -183,7 +188,7 @@ fn player_shoot(
                 },
                 |col| {
                     col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP & !PLYR_GRP))
-                        .sensor(true)
+                        // .sensor(true)
                 },
             )
                 .with(Despawn::after(1.0))
@@ -254,17 +259,19 @@ fn player_move(
     for (_player, rb_comp) in query.iter() {
         let rb = rigid_bodies.get_mut(rb_comp.handle()).unwrap();
 
+        // constants
         let phys_scal = rb.mass() * 2.0;
+        let angf_mag = 0.01 * phys_scal;
+        let sidef_mag = 200.0 * phys_scal;
+        let frig_s = 10.0 * phys_scal;
+        let jump_mag = 15.0 * phys_scal;
 
+        // forces, impulses and velocity updates
         let mut vel = Vector2::new(rb.linvel().x, rb.linvel().y);
         let mut jump_force = Vector2::zeros();
         let mut fric_force = Vector2::zeros();
         let mut side_force = Vector2::zeros();
         let mut ang_vel = rb.angvel();
-        let angf_mag = 0.01 * phys_scal;
-        let sidef_mag = 200.0 * phys_scal;
-        let frig_s = 10.0 * phys_scal;
-        let jump_mag = 15.0 * phys_scal;
         if keyboard_input.just_pressed(KeyCode::W) || keyboard_input.just_pressed(KeyCode::Space) {
             jump_force.y += jump_mag;
         }
