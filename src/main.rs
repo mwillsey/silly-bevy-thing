@@ -46,10 +46,9 @@ struct BoxBundle {
 //     fn default
 // }
 
-fn spawn<'a>(
+fn spawnBox<'a>(
     cmd: &'a mut Commands, 
-    material: Handle<ColorMaterial>, //materials: &mut Assets<ColorMaterial>,
-    // color: Color,
+    material: Handle<ColorMaterial>,
     x: f32,
     y: f32,
     w: f32,
@@ -61,45 +60,35 @@ fn spawn<'a>(
     let cmd = cmd.spawn(SpriteBundle {
         material: material,
         sprite: Sprite::new(Vec2::new(w, h)),
+        transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
         ..Default::default()
     });
     let ent = cmd.current_entity().unwrap();
     let rb = if dynamic { RigidBodyBuilder::new_dynamic() } else { RigidBodyBuilder::new_static() }
-        .translation(x / SCALE, y / SCALE);
+        .translation(x / SCALE, y / SCALE)
+        ;
     let rb = rig_cb(rb);
     let col = ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
-        .user_data(ent.to_bits() as u128);
+        .user_data(ent.to_bits() as u128)
+        ;
     let col = col_cb(col);
     cmd
         .with(rb)
         .with(col)
 }
 
-fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
-         mut rapier_config: ResMut<RapierConfiguration>,
-         ) {
-
+fn setup(
+    commands: &mut Commands, 
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut rapier_config: ResMut<RapierConfiguration>,
+) {
     rapier_config.scale = SCALE;
     rapier_config.gravity = Vector2::new(0.0, -100.0);
     commands.spawn(Camera2dBundle::default());
 
-    // let block_color = Color::rgba(0.0, 1.0, 0.0, 0.2);
     let block_mat = materials.add(Color::rgba(0.0, 1.0, 0.0, 0.2).into());
-    let block = |cmd: &mut Commands,
-                // materials: &mut Assets<ColorMaterial>,
-                // rapier_config: &mut RapierConfiguration,
-                x: f32, y: f32, w: f32, h: f32| {
-        // cmd.spawn(SpriteBundle {
-        //     material: block_mat.clone(),
-        //     // transform: Transform::from_translation(Vec3::new(x, y, 0.0)),
-        //     sprite: Sprite::new(Vec2::new(w, h)),
-        //     ..Default::default()
-        // })
-        // .with(RigidBodyBuilder::new_static().translation(x / SCALE, y / SCALE))
-        // .with(ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
-        //     .collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
-        // );
-        spawn(cmd,
+    let block = |cmd: &mut Commands, x: f32, y: f32, w: f32, h: f32| {
+        spawnBox(cmd,
             block_mat.clone(),
             x, y,
             w, h,
@@ -111,87 +100,51 @@ fn setup(commands: &mut Commands, mut materials: ResMut<Assets<ColorMaterial>>,
                 col.collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP))
             },
         );
-        // // .with(Msaa::default())
-        // ;
     };
+    block(commands, 0.0, -200.0, 2000.0, 100.0);
+    block(commands, 0.0, 400.0, 2000.0, 100.0);
+    block(commands, -600.0, 0.0, 100.0, 2000.0);
+    block(commands, 600.0, 0.0, 100.0, 2000.0);
 
     let player_size = 20.0;
-    // commands.spawn(SpriteBundle {
-    //     material: materials.add(Color::rgb(0.1, 0.9, 1.0).into()),
-    //     sprite: Sprite::new(Vec2::new(player_size, player_size)),
-    //     ..Default::default()
-    // })
-    //     .with(RigidBodyBuilder::new_dynamic()
-    //         .mass(1.0)
-    //         .translation(0.0, 10.0))
-    //     .with(Player)
-    //     .with(ColliderBuilder::cuboid(player_size / 2.0 / SCALE, player_size / 2.0/SCALE)
-    //         .collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
-    //     );
-    spawn(commands,
+    spawnBox(commands,
         // Color::rgb(0.1, 0.9, 1.0),
         materials.add(Color::rgb(0.1, 0.9, 1.0).into()),
         0.0, 10.0,
         player_size, player_size,
         true,
-        |rig: RigidBodyBuilder| {
+        |rig| {
             rig.mass(1.0)
         },
-        |col: ColliderBuilder| {
+        |col| {
             col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP))
         },
     ).with(Player);
 
-    let pnum = 4;
-    let psize = 50.0;
-    for x in 0..pnum {
-        for y in 0..pnum {
-            let c = (x + y*pnum) as f32 / (pnum*pnum) as f32;
+    let blob_num = 4;
+    let blob_size = 50.0;
+    for x in 0..blob_num {
+        for y in 0..blob_num {
+            let c = (x + y*blob_num) as f32 / (blob_num*blob_num) as f32;
             let xf = x as f32;
             let yf = y as f32;
-            let pnumf = pnum as f32;
-            // let s = psize + psize * c * 2.0;
-            let s = psize;
-            // let ent = commands.spawn(SpriteBundle {
-            //     material: materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
-            //     // transform: Transform::from_translation(Vec3::new(0.0, -415.0, 0.0)),
-            //     sprite: Sprite::new(Vec2::new(s, s)),
-            //     ..Default::default()
-            // }).current_entity().unwrap();
-            // commands
-            //     .with(RigidBodyBuilder::new_dynamic()
-            //         .mass(0.1)
-            //         .translation(xf - pnumf * 0.5 + yf * 0.2 *s  /SCALE,(y - pnum/2) as f32 *s /SCALE))
-            //     .with(Blob)
-            //     .with(
-            //         ColliderBuilder::cuboid(s / 2.0 / SCALE, s / 2.0/SCALE)
-            //         .friction(0.2)
-            //         .user_data(ent.to_bits() as u128)
-            //         .collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
-            //     );
-            spawn(commands,
+            let pnumf = blob_num as f32;
+            let s = blob_size;
+            spawnBox(commands,
                 materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
-                xf - pnumf * 0.5 + yf * 0.2 *s  /SCALE,(y - pnum/2) as f32 *s /SCALE,
+                xf - pnumf * 0.5 + yf * 0.2 *s  /SCALE,(y - blob_num/2) as f32 *s /SCALE,
                 s, s,
                 true,
-                |rig: RigidBodyBuilder| {
+                |rig| {
                     rig.mass(0.1)
                 },
-                |col: ColliderBuilder| {
+                |col| {
                     col.collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
                         .friction(0.2)
                 },
             ).with(Blob);
         }
     }
-    block(commands, 0.0, -200.0, 2000.0, 100.0);
-    block(commands, 0.0, 400.0, 2000.0, 100.0);
-    block(commands, -600.0, 0.0, 100.0, 2000.0);
-    block(commands, 600.0, 0.0, 100.0, 2000.0);
-    // block(commands, materials, rapier_config, 0.0, -200.0, 2000.0, 100.0);
-    // block(commands, materials, rapier_config, 0.0, 400.0, 2000.0, 100.0);
-    // block(commands, materials, rapier_config, -600.0, 0.0, 100.0, 2000.0);
-    // block(commands, materials, rapier_config, 600.0, 0.0, 100.0, 2000.0);
 }
 
 #[derive(Default)]
@@ -213,36 +166,28 @@ fn player_shoot(
 
             // side_force.x -= sidef_mag
             let s = 10.0;
-            let y = player_rb.position().translation.y;
-            let x = player_rb.position().translation.x;
+            let y = player_rb.position().translation.y * SCALE;
+            let x = player_rb.position().translation.x * SCALE;
             
             let v = if player_rb.linvel().x > 0.0 {5.0} else {-5.0};
 
-            let rb = RigidBodyBuilder::new_dynamic()
-                .gravity_scale(0.0)
-                .mass(10.0)
-                // TODO @darzu: translate to player
-                .translation(x, y)
-                .linvel(player_rb.linvel().x + v, 0.0);
-            // rb.apply_impulse(punch_force, true);
-
-            commands.spawn(SpriteBundle {
-                material: materials.add(Color::rgb(1.0, 1.0, 0.8).into()),
-                // transform: Transform::from_translation(Vec3::new(-x, -y, 0.0)),
-                transform: Transform::from_translation(Vec3::new(x * 20.0, y * 20.0, 0.0)),
-                // transform: Transform::from_translation(Vec3::new(-x * 20.0, -y * 20.0, 0.0)),
-                sprite: Sprite::new(Vec2::new(s, s)),
-                ..Default::default()
-            })
-                // .with(Parent(player))
-                .with(rb)
-                .with(Hitbox)
-                .with(
-                    ColliderBuilder::cuboid(s / 2.0 / SCALE, s / 2.0/SCALE)
-                    .collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP & !PLYR_GRP))
-                    .sensor(true)
-                )
+            spawnBox(commands,
+                materials.add(Color::rgb(1.0, 1.0, 0.8).into()),
+                x, y,
+                s, s,
+                true,
+                |rg| {
+                    rg.gravity_scale(0.0)
+                        .mass(10.0)
+                        .linvel(player_rb.linvel().x + v, 0.0)
+                },
+                |col| {
+                    col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP & !PLYR_GRP))
+                        .sensor(true)
+                },
+            )
                 .with(Despawn::after(1.0))
+                .with(Hitbox)
                 ;
         }
     }
@@ -320,7 +265,7 @@ fn player_move(
         let sidef_mag = 200.0 * phys_scal;
         let frig_s = 10.0 * phys_scal;
         let jump_mag = 15.0 * phys_scal;
-        if keyboard_input.just_pressed(KeyCode::W) {
+        if keyboard_input.just_pressed(KeyCode::W) || keyboard_input.just_pressed(KeyCode::Space) {
             jump_force.y += jump_mag;
         }
         if keyboard_input.pressed(KeyCode::A) {
@@ -335,9 +280,6 @@ fn player_move(
         else if keyboard_input.pressed(KeyCode::E) {
             ang_vel -= angf_mag
         }
-        // else {
-        //     ang_vel = 0.0;
-        // }
         if jump_force.magnitude_squared() > 0.0 {
             // reset y vel when jumping
             vel.y = 0.0;
