@@ -114,17 +114,23 @@ fn gen_world(
         .with(Platform);
     };
 
-    // create random platforms between -1000
     for x in -10..10 {
         for y in -10..10 {
+            // spawn platform
             let (x, y) = (x as f32, y as f32);
             let (w, h) = (200.0, 10.0);
-            block(commands, x * w * 2.0 + y * w, y * 100.0, w, h);
+            let xx = x * w * 2.0 + y * w;
+            let yy = y * 100.0;
+            block(commands, xx, yy, w, h);
 
-
+            // spawn blob?
+            let c = 0.5;
+            spawn_blob(commands, materials, 
+                xx, 
+                yy + 5.0,
+                c);
         }
     }
-    // block(commands, 0.0, -200.0, 1000.0, 10.0);
 }
 
 fn move_camera(
@@ -173,30 +179,34 @@ fn setup(
     });
 
     // blobs
-    let blob_num = 4;
-    let blob_size = 50.0;
-    for x in 0..blob_num {
-        for y in 0..blob_num {
-            let c = (x + y * blob_num) as f32 / (blob_num * blob_num) as f32;
-            let xf = x as f32;
-            let yf = y as f32;
-            let pnumf = blob_num as f32;
-            let s = blob_size;
-            spawn_blob(commands, &mut materials, 
-                xf - pnumf * 0.5 + yf * 0.2 * s / SCALE, 
-                (y - blob_num / 2) as f32 * s / SCALE,
-                c);
-        }
-    }
+    // let blob_num = 4;
+    // let blob_size = 50.0;
+    // for x in 0..blob_num {
+    //     for y in 0..blob_num {
+    //         let c = (x + y * blob_num) as f32 / (blob_num * blob_num) as f32;
+    //         let xf = x as f32;
+    //         let yf = y as f32;
+    //         let pnumf = blob_num as f32;
+    //         let s = blob_size;
+    //         spawn_blob(commands, &mut materials, 
+    //             xf - pnumf * 0.5 + yf * 0.2 * s / SCALE, 
+    //             (y - blob_num / 2) as f32 * s / SCALE,
+    //             c);
+    //     }
+    // }
 }
 
 fn blob_move(
     mut rigid_bodies: ResMut<RigidBodySet>,
-    mut blobs: Query<(&RigidBodyHandleComponent, &Intersections), With<Blob>>,
-    mut platforms: Query<&RigidBodyHandleComponent, With<Platform>>,
+    blobs: Query<(&RigidBodyHandleComponent, &Intersections), With<Blob>>,
+    platforms: Query<&RigidBodyHandleComponent, With<Platform>>,
 ) {
     for (blob_rbh, inters) in blobs.iter() {
-        let intersecting_platforms = inters.0.iter().filter(|e| platforms.get(**e).is_ok());
+        let intersecting_platforms: Vec<_> = inters.0.iter().filter_map(|e| platforms.get(*e).ok()).collect();
+        if intersecting_platforms.len() == 1 {
+            let platform_rb = rigid_bodies.get(intersecting_platforms[0].handle());
+            let blob_rb = rigid_bodies.get(blob_rbh.handle());
+        }
     }
 }
 
