@@ -19,6 +19,7 @@ struct Player {
     dir_x: f32,
 }
 struct Blob;
+struct Platform;
 struct HitBox {
     dir_x: f32,
 }
@@ -68,6 +69,31 @@ fn spawn_box<'a>(
     cmd.with(rb).with(col)
 }
 
+fn spawn_blob<'a>(
+    commands: &'a mut Commands,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    x: f32, y: f32, c: f32,
+) -> &'a mut Commands {    
+    let blob_size = 50.0;
+    spawn_box(
+        commands,
+        materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
+        // materials.add(Color::rgb(0.0, 1.0, 1.0).into()),
+        x,
+        y,
+        blob_size,
+        blob_size,
+        true,
+        |rig| rig.mass(0.1),
+        |col| {
+            col.collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
+                .friction(0.2)
+        },
+    )
+    .with(Blob)
+    .with(Health { health: 10 })
+}
+
 fn gen_world(
     commands: &mut Commands,
     materials: &mut ResMut<Assets<ColorMaterial>>,
@@ -84,15 +110,18 @@ fn gen_world(
             false,
             |rig| rig,
             |col| col.collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP)),
-        );
+        )
+        .with(Platform);
     };
 
     // create random platforms between -1000
     for x in -10..10 {
         for y in -10..10 {
-            let x = x as f32;
-            let y = y as f32;
-            block(commands, x * 200.0 + y * 100.0, y * 70.0, 100.0, 10.0);
+            let (x, y) = (x as f32, y as f32);
+            let (w, h) = (200.0, 10.0);
+            block(commands, x * w * 2.0 + y * w, y * 100.0, w, h);
+
+
         }
     }
     // block(commands, 0.0, -200.0, 1000.0, 10.0);
@@ -153,25 +182,21 @@ fn setup(
             let yf = y as f32;
             let pnumf = blob_num as f32;
             let s = blob_size;
-            spawn_box(
-                commands,
-                materials.add(Color::rgb(c, 1.0 - c, 1.0).into()),
-                // materials.add(Color::rgb(0.0, 1.0, 1.0).into()),
-                xf - pnumf * 0.5 + yf * 0.2 * s / SCALE,
+            spawn_blob(commands, &mut materials, 
+                xf - pnumf * 0.5 + yf * 0.2 * s / SCALE, 
                 (y - blob_num / 2) as f32 * s / SCALE,
-                s,
-                s,
-                true,
-                |rig| rig.mass(0.1),
-                |col| {
-                    col.collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
-                        .friction(0.2)
-                },
-            )
-            .with(Blob)
-            .with(Health { health: 10 })
-            ;
+                c);
         }
+    }
+}
+
+fn blob_move(
+    mut rigid_bodies: ResMut<RigidBodySet>,
+    mut blobs: Query<(&RigidBodyHandleComponent, &Intersections), With<Blob>>,
+    mut platforms: Query<&RigidBodyHandleComponent, With<Platform>>,
+) {
+    for (blob_rbh, inters) in blobs.iter() {
+        let intersecting_platforms = inters.0.iter().filter(|e| platforms.get(**e).is_ok());
     }
 }
 
@@ -341,7 +366,7 @@ fn player_move(
         let angf_mag = 0.01 * phys_scal;
         let sidef_mag = 200.0 * phys_scal;
         let frig_s = 10.0 * phys_scal;
-        let jump_mag = 15.0 * phys_scal;
+        let jump_mag = 20.0 * phys_scal;
 
         // forces, impulses and velocity updates
         let mut vel = Vector2::new(rb.linvel().x, rb.linvel().y);
