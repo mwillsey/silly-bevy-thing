@@ -126,8 +126,8 @@ fn gen_world(
             // spawn blob?
             let c = 0.5;
             spawn_blob(commands, materials, 
-                xx, 
-                yy + 5.0,
+                x, 
+                y + 5.0,
                 c);
         }
     }
