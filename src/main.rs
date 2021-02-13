@@ -91,6 +91,7 @@ fn spawn_blob<'a>(
         },
     )
     .with(Blob)
+    .with(Intersections::default())
     .with(Health { health: 10 })
 }
 
@@ -126,8 +127,8 @@ fn gen_world(
             // spawn blob?
             let c = 0.5;
             spawn_blob(commands, materials, 
-                x, 
-                y + 5.0,
+                xx, 
+                yy + 5.0,
                 c);
         }
     }
@@ -149,6 +150,8 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut rapier_config: ResMut<RapierConfiguration>,
 ) {
+    println!("Hello world!");
+
     // global settings
     rapier_config.scale = SCALE;
     rapier_config.gravity = Vector2::new(0.0, -100.0);
@@ -197,15 +200,18 @@ fn setup(
 }
 
 fn blob_move(
+    narrow_phase: Res<NarrowPhase>,
     mut rigid_bodies: ResMut<RigidBodySet>,
-    blobs: Query<(&RigidBodyHandleComponent, &Intersections), With<Blob>>,
+    blobs: Query<(&RigidBodyHandleComponent, &ColliderHandleComponent), With<Blob>>,
     platforms: Query<&RigidBodyHandleComponent, With<Platform>>,
 ) {
-    for (blob_rbh, inters) in blobs.iter() {
+    for (blob_rbh, blob_cth) in blobs.iter() {
+
         let intersecting_platforms: Vec<_> = inters.0.iter().filter_map(|e| platforms.get(*e).ok()).collect();
         if intersecting_platforms.len() == 1 {
             let platform_rb = rigid_bodies.get(intersecting_platforms[0].handle());
             let blob_rb = rigid_bodies.get(blob_rbh.handle());
+            println!("I found my platform");
         }
     }
 }
@@ -472,6 +478,7 @@ fn main() {
         .add_plugin(RapierPhysicsPlugin)
         .add_startup_system(setup.system())
         .add_system(player_move.system())
+        .add_system(blob_move.system())
         .add_system(player_shoot.system())
         .add_system(despawn_system.system())
         .add_system(health_system.system())
