@@ -29,7 +29,6 @@ const BLOB_GRP: u16 = 0b0010000000000000;
 const ALL_GRP: u16 = u16::MAX;
 
 const SCALE: f32 = 20.0;
-const SCALE2: f32 = 1.0; // 20.0;
 
 #[derive(Bundle)]
 struct BoxBundle {
@@ -69,19 +68,10 @@ fn spawn_box<'a>(
     cmd.with(rb).with(col)
 }
 
-fn setup(
+fn gen_world(
     commands: &mut Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
-    mut rapier_config: ResMut<RapierConfiguration>,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
 ) {
-    // global settings
-    rapier_config.scale = SCALE;
-    rapier_config.gravity = Vector2::new(0.0, -100.0 * SCALE2);
-
-    // camera
-    commands.spawn(Camera2dBundle::default());
-
-    // world platforms
     let block_mat = materials.add(Color::rgba(0.0, 1.0, 0.0, 0.2).into());
     let block = |cmd: &mut Commands, x: f32, y: f32, w: f32, h: f32| {
         spawn_box(
@@ -96,10 +86,32 @@ fn setup(
             |col| col.collision_groups(InteractionGroups::new(WRLD_GRP, ALL_GRP)),
         );
     };
-    block(commands, 0.0, -200.0, 2000.0, 100.0);
-    block(commands, 0.0, 400.0, 2000.0, 100.0);
-    block(commands, -600.0, 0.0, 100.0, 2000.0);
-    block(commands, 600.0, 0.0, 100.0, 2000.0);
+
+    // create random platforms between -1000
+    for x in -10..10 {
+        for y in -10..10 {
+            let x = x as f32;
+            let y = y as f32;
+            block(commands, x * 200.0 + y * 50.0, y * 70.0, 100.0, 10.0);
+        }
+    }
+    // block(commands, 0.0, -200.0, 1000.0, 10.0);
+}
+
+fn setup(
+    commands: &mut Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mut rapier_config: ResMut<RapierConfiguration>,
+) {
+    // global settings
+    rapier_config.scale = SCALE;
+    rapier_config.gravity = Vector2::new(0.0, -100.0);
+
+    // camera
+    commands.spawn(Camera2dBundle::default());
+
+    // world platforms
+    gen_world(commands, &mut materials);
 
     // player
     let player_size = 20.0;
@@ -112,7 +124,7 @@ fn setup(
         player_size,
         player_size,
         true,
-        |rig| rig.mass(1.0 * SCALE2),
+        |rig| rig.mass(1.0),
         |col| col.collision_groups(InteractionGroups::new(PLYR_GRP, ALL_GRP)),
     )
     .with(Player { 
@@ -139,7 +151,7 @@ fn setup(
                 s,
                 s,
                 true,
-                |rig| rig.mass(0.1 * SCALE2),
+                |rig| rig.mass(0.1),
                 |col| {
                     col.collision_groups(InteractionGroups::new(BLOB_GRP, ALL_GRP))
                         .friction(0.2)
