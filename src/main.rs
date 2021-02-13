@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::camera::Camera};
 use bevy_rapier2d::rapier::{geometry::ColliderSet, na::Vector2};
 use bevy_rapier2d::rapier::{dynamics::*, geometry::ColliderBuilder};
 use bevy_rapier2d::{
@@ -92,10 +92,21 @@ fn gen_world(
         for y in -10..10 {
             let x = x as f32;
             let y = y as f32;
-            block(commands, x * 200.0 + y * 50.0, y * 70.0, 100.0, 10.0);
+            block(commands, x * 200.0 + y * 100.0, y * 70.0, 100.0, 10.0);
         }
     }
     // block(commands, 0.0, -200.0, 1000.0, 10.0);
+}
+
+fn move_camera(
+    player_query: Query<&Transform, With<Player>>,
+    mut camera_query: Query<&mut Transform, With<Camera>>,
+) {
+    let player_tf = player_query.iter().next().unwrap();
+    let mut camera_tf = camera_query.iter_mut().next().unwrap();
+    
+    let diff = player_tf.translation - camera_tf.translation;
+    camera_tf.translation += diff * 0.01;
 }
 
 fn setup(
@@ -429,6 +440,7 @@ fn main() {
         .add_system(player_shoot.system())
         .add_system(despawn_system.system())
         .add_system(health_system.system())
+        .add_system(move_camera.system())
         .add_system_to_stage(stage::PRE_UPDATE, find_collisions.system())
         .add_system(do_punch.system())
         .add_system_to_stage(stage::LAST, clear_collisions.system())
