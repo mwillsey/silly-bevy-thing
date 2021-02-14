@@ -44,7 +44,7 @@ fn blob_move(
             }).collect();
             if contacting_platforms.len() == 1 {
                 let blob_rb = &mut rigid_bodies[blob_rbh.handle()];
-                if !blob_rb.is_moving() {
+                if !blob_rb.is_moving() /*|| true*/ { // NOTE: adding `|| true` here causes it not to crash.
                     // ---
                     // CRASH! This line. Comment out to hide crash
                     blob_rb.apply_impulse([100.0, 100.0].into(), true);
