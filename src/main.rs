@@ -64,6 +64,7 @@ fn spawn_box<'a>(
     } else {
         RigidBodyBuilder::new_static()
     }
+    .can_sleep(false)
     .translation(x / SCALE, y / SCALE);
     let rb = rig_cb(rb);
     let col =
@@ -217,7 +218,6 @@ fn other<T>(me: ColliderHandle, contact: (ColliderHandle, ColliderHandle, T)) ->
 }
 
 fn blob_move(
-    time: Res<Time>,
     narrow_phase: Res<NarrowPhase>,
     colliders: ResMut<ColliderSet>,
     mut rigid_bodies: ResMut<RigidBodySet>,
@@ -233,9 +233,9 @@ fn blob_move(
             }).collect();
             if contacting_platforms.len() == 1 {
                 let blob_rb = &mut rigid_bodies[blob_rbh.handle()];
-                if !blob_rb.is_moving() {
-                    // TODO: waiting on physics bug fix
-//                    blob_rb.apply_impulse([100.0, 100.0].into(), true);
+                if blob_rb.linvel().y == 0.0 {
+                // if !blob_rb.is_moving() {
+                   blob_rb.apply_impulse([30.0, 100.0].into(), true);
                 }
                 let platform_rb = &rigid_bodies[contacting_platforms[0].handle()];
             }
