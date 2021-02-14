@@ -2961,8 +2961,7 @@ checksum = "63e935c45e09cc6dcf00d2f0b2d630a58f4095320223d47fc68918722f0538b6"
 [[package]]
 name = "rapier2d"
 version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92b929b02109815ca1ddb680581b76eeea54ec18ebd22aaa567ba909a2af20e8"
+source = "git+https://github.com/dimforge/rapier?rev=3be866920657f7a13a49486795e06f14d92f4969#3be866920657f7a13a49486795e06f14d92f4969"
 dependencies = [
  "approx",
  "arrayvec",

@@ -12,5 +12,8 @@ features = ["dynamic"]
 # bevy_rapier2d = {version="0.8", features=["parallel", "simd-stable"]}
 bevy_rapier2d = "0.8"
 
+[patch.crates-io]
+rapier2d = { git = "https://github.com/dimforge/rapier", rev = "3be866920657f7a13a49486795e06f14d92f4969" }
+
 [profile.dev.package."*"]
 opt-level = 3

@@ -1,11 +1,11 @@
-use std::collections::HashMap;
+use std::{borrow::Borrow, collections::HashMap};
 
-use bevy::{prelude::*, render::camera::Camera};
-use bevy_rapier2d::rapier::{geometry::ColliderSet, na::Vector2};
+use bevy::{math::vec2, prelude::*, render::camera::Camera};
+use bevy_rapier2d::rapier::{geometry::{Collider, ColliderSet}, na::Vector2};
 use bevy_rapier2d::rapier::{dynamics::*, geometry::ColliderBuilder};
 use bevy_rapier2d::{
     physics::*,
-    rapier::geometry::{ColliderHandle, ContactEvent, InteractionGroups},
+    rapier::geometry::{ColliderHandle, ContactEvent, InteractionGroups, NarrowPhase},
 };
 
 /*
@@ -18,7 +18,10 @@ struct Player {
     next_fire: f64,
     dir_x: f32,
 }
-struct Blob;
+#[derive(Default)]
+struct Blob {
+    going_right: bool
+}
 struct Platform;
 struct HitBox {
     dir_x: f32,
@@ -64,9 +67,14 @@ fn spawn_box<'a>(
     .translation(x / SCALE, y / SCALE);
     let rb = rig_cb(rb);
     let col =
-        ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE).user_data(ent.to_bits() as u128);
+        ColliderBuilder::cuboid(w / 2.0 / SCALE, h / 2.0 / SCALE)
+          .user_data(ent.to_bits() as u128);
     let col = col_cb(col);
     cmd.with(rb).with(col)
+}
+
+fn c2e(c: &Collider) -> Entity {
+    Entity::from_bits(c.user_data as u64)
 }
 
 fn spawn_blob<'a>(
@@ -90,7 +98,7 @@ fn spawn_blob<'a>(
                 .friction(0.2)
         },
     )
-    .with(Blob)
+    .with(Blob::default())
     .with(Intersections::default())
     .with(Health { health: 10 })
 }
@@ -199,19 +207,37 @@ fn setup(
     // }
 }
 
+fn other<T>(me: ColliderHandle, contact: (ColliderHandle, ColliderHandle, T)) -> ColliderHandle {
+    if me == contact.0 {
+        contact.1
+    } else {
+        assert_eq!(me, contact.1);
+        contact.0
+    }
+}
+
 fn blob_move(
+    time: Res<Time>,
     narrow_phase: Res<NarrowPhase>,
+    colliders: ResMut<ColliderSet>,
     mut rigid_bodies: ResMut<RigidBodySet>,
-    blobs: Query<(&RigidBodyHandleComponent, &ColliderHandleComponent), With<Blob>>,
+    mut blobs: Query<(&mut Blob, &RigidBodyHandleComponent, &ColliderHandleComponent)>,
     platforms: Query<&RigidBodyHandleComponent, With<Platform>>,
 ) {
-    for (blob_rbh, blob_cth) in blobs.iter() {
-
-        let intersecting_platforms: Vec<_> = inters.0.iter().filter_map(|e| platforms.get(*e).ok()).collect();
-        if intersecting_platforms.len() == 1 {
-            let platform_rb = rigid_bodies.get(intersecting_platforms[0].handle());
-            let blob_rb = rigid_bodies.get(blob_rbh.handle());
-            println!("I found my platform");
+    for (blob, blob_rbh, blob_cth) in blobs.iter_mut() {
+        let blob_cth = blob_cth.handle();
+        if let Some(contacting) = narrow_phase.contacts_with(blob_cth) {
+            let contacting_platforms: Vec<_> = contacting.filter_map(|ct| {
+                let other_ent = c2e(&colliders[other(blob_cth, ct)]);
+                platforms.get(other_ent).ok()
+            }).collect();
+            if contacting_platforms.len() == 1 {
+                let blob_rb = &mut rigid_bodies[blob_rbh.handle()];
+                if !blob_rb.is_moving() {
+                    blob_rb.apply_impulse([100.0, 100.0].into(), true);
+                }
+                let platform_rb = &rigid_bodies[contacting_platforms[0].handle()];
+            }
         }
     }
 }
