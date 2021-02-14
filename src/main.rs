@@ -234,7 +234,8 @@ fn blob_move(
             if contacting_platforms.len() == 1 {
                 let blob_rb = &mut rigid_bodies[blob_rbh.handle()];
                 if !blob_rb.is_moving() {
-                    blob_rb.apply_impulse([100.0, 100.0].into(), true);
+                    // TODO: waiting on physics bug fix
+//                    blob_rb.apply_impulse([100.0, 100.0].into(), true);
                 }
                 let platform_rb = &rigid_bodies[contacting_platforms[0].handle()];
             }
