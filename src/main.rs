@@ -217,14 +217,18 @@ fn other<T>(me: ColliderHandle, contact: (ColliderHandle, ColliderHandle, T)) ->
     }
 }
 
+fn bool2f(b: bool) -> f32 {
+    if b { 1.0 } else { -1.0 }
+}
+
 fn blob_move(
     narrow_phase: Res<NarrowPhase>,
     colliders: ResMut<ColliderSet>,
     mut rigid_bodies: ResMut<RigidBodySet>,
     mut blobs: Query<(&mut Blob, &RigidBodyHandleComponent, &ColliderHandleComponent)>,
-    platforms: Query<&RigidBodyHandleComponent, With<Platform>>,
+    platforms: Query<&ColliderHandleComponent, With<Platform>>,
 ) {
-    for (blob, blob_rbh, blob_cth) in blobs.iter_mut() {
+    for (mut blob, blob_rbh, blob_cth) in blobs.iter_mut() {
         let blob_cth = blob_cth.handle();
         if let Some(contacting) = narrow_phase.contacts_with(blob_cth) {
             let contacting_platforms: Vec<_> = contacting.filter_map(|ct| {
@@ -233,11 +237,17 @@ fn blob_move(
             }).collect();
             if contacting_platforms.len() == 1 {
                 let blob_rb = &mut rigid_bodies[blob_rbh.handle()];
-                if blob_rb.linvel().y == 0.0 {
-                // if !blob_rb.is_moving() {
-                   blob_rb.apply_impulse([30.0, 100.0].into(), true);
+                if blob_rb.linvel().y.abs() <= 0.01 {
+                   let plat_aabb = colliders[contacting_platforms[0].handle()].compute_aabb();
+                   let blob_aabb = colliders[blob_cth].compute_aabb();
+                   let x = 30.0 * if blob.going_right {
+                       bool2f(blob_aabb.maxs.x < plat_aabb.maxs.x)
+                   } else {
+                       -bool2f(blob_aabb.mins.x > plat_aabb.mins.x)
+                   };
+                   blob.going_right = x.is_sign_positive();
+                   blob_rb.apply_impulse([x, 100.0].into(), true);
                 }
-                let platform_rb = &rigid_bodies[contacting_platforms[0].handle()];
             }
         }
     }
