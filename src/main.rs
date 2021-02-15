@@ -32,7 +32,7 @@ const PLYR_GRP: u16 = 0b0100000000000000;
 const BLOB_GRP: u16 = 0b0010000000000000;
 const ALL_GRP: u16 = u16::MAX;
 
-const SCALE: f32 = 30.0;
+const SCALE: f32 = 20.0;
 
 #[derive(Bundle)]
 struct BoxBundle {
