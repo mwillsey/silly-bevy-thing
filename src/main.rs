@@ -7,6 +7,7 @@ use bevy_rapier2d::{
     physics::*,
     rapier::geometry::{ColliderHandle, ContactEvent, InteractionGroups, NarrowPhase},
 };
+use bevy::prelude::*;
 
 /*
 NOTES:
@@ -32,7 +33,7 @@ const PLYR_GRP: u16 = 0b0100000000000000;
 const BLOB_GRP: u16 = 0b0010000000000000;
 const ALL_GRP: u16 = u16::MAX;
 
-const SCALE: f32 = 30.0;
+const SCALE: f32 = 20.0;
 
 #[derive(Bundle)]
 struct BoxBundle {
@@ -153,11 +154,14 @@ fn move_camera(
     
     let diff = player_tf.translation - camera_tf.translation;
     camera_tf.translation += diff * 0.01;
+    camera_tf.translation.z = 1000.0;
 }
 
 fn setup(
     commands: &mut Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    mut materials3d: ResMut<Assets<StandardMaterial>>,
+    mut meshes: ResMut<Assets<Mesh>>,
     mut rapier_config: ResMut<RapierConfiguration>,
 ) {
     println!("Hello world!");
@@ -167,7 +171,7 @@ fn setup(
     rapier_config.gravity = Vector2::new(0.0, -100.0);
 
     // camera
-    commands.spawn(Camera2dBundle::default());
+    // commands.spawn(Camera3dBundle::default());
 
     // world platforms
     gen_world(commands, &mut materials);
@@ -207,6 +211,33 @@ fn setup(
     //             c);
     //     }
     // }
+
+    // 3D
+    commands
+        // plane
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 5.0 })),
+            material: materials3d.add(Color::rgb(0.3, 0.5, 0.3).into()),
+            ..Default::default()
+        })
+        // cube
+        .spawn(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
+            material: materials3d.add(Color::rgb(0.8, 0.7, 0.6).into()),
+            transform: Transform::from_translation(Vec3::new(0.0, 0.5, 0.0)),
+            ..Default::default()
+        })
+        // light
+        .spawn(LightBundle {
+            transform: Transform::from_translation(Vec3::new(4.0, 8.0, 4.0)),
+            ..Default::default()
+        })
+        // camera
+        .spawn(Camera3dBundle {
+            transform: Transform::from_translation(Vec3::new(-20.0, 25.0, 50.0))
+                .looking_at(Vec3::default(), Vec3::unit_y()),
+            ..Default::default()
+        });
 }
 
 fn other<T>(me: ColliderHandle, contact: (ColliderHandle, ColliderHandle, T)) -> ColliderHandle {
@@ -512,6 +543,7 @@ fn health_system(
 
 fn main() {
     App::build()
+        .add_resource(Msaa { samples: 4 })
         .add_plugins(DefaultPlugins)
         .add_plugin(RapierPhysicsPlugin)
         .add_startup_system(setup.system())
@@ -520,7 +552,7 @@ fn main() {
         .add_system(player_shoot.system())
         .add_system(despawn_system.system())
         .add_system(health_system.system())
-        .add_system(move_camera.system())
+        // .add_system(move_camera.system())
         .add_system_to_stage(stage::PRE_UPDATE, find_collisions.system())
         .add_system(do_punch.system())
         .add_system_to_stage(stage::LAST, clear_collisions.system())
