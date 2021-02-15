@@ -1,0 +1,99 @@
+Hello world!
+thread 'main' panicked at 'assertion failed: proxy.aabb.maxs[dim] >= self.min_bound', /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/rapier2d-0.5.0/src/geometry/broad_phase_multi_sap.rs:172:13
+stack backtrace:
+   0: std::panicking::begin_panic
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/std/src/panicking.rs:521:12
+   1: rapier2d::geometry::broad_phase_multi_sap::SAPAxis::batch_insert
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/rapier2d-0.5.0/src/geometry/broad_phase_multi_sap.rs:172:13
+   2: rapier2d::geometry::broad_phase_multi_sap::SAPRegion::update
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/rapier2d-0.5.0/src/geometry/broad_phase_multi_sap.rs:442:17
+   3: rapier2d::geometry::broad_phase_multi_sap::BroadPhase::update_regions
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/rapier2d-0.5.0/src/geometry/broad_phase_multi_sap.rs:695:13
+   4: rapier2d::geometry::broad_phase_multi_sap::BroadPhase::find_pairs
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/rapier2d-0.5.0/src/geometry/broad_phase_multi_sap.rs:724:9
+   5: rapier2d::pipeline::physics_pipeline::PhysicsPipeline::step
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/rapier2d-0.5.0/src/pipeline/physics_pipeline.rs:103:9
+   6: bevy_rapier2d::physics::systems::step_world_system
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_rapier2d-0.8.0/src/physics/systems.rs:227:9
+   7: core::ops::function::Fn::call
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ops/function.rs:70:5
+   8: core::ops::function::impls::<impl core::ops::function::FnMut<A> for &F>::call_mut
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ops/function.rs:247:13
+   9: <Func as bevy_ecs::system::into_system::IntoSystem<(A,B,C,D,E,F,G,H,I,J),bevy_ecs::system::into_system::FuncSystem<Out>>>::system::{{closure}}
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/system/into_system.rs:237:38
+  10: bevy_ecs::schedule::stage_executor::ParallelSystemStageExecutor::run_systems::{{closure}}::{{closure}}
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/schedule/stage_executor.rs:372:29
+  11: <core::future::from_generator::GenFuture<T> as core::future::future::Future>::poll
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/future/mod.rs:80:19
+  12: async_executor::Executor::spawn::{{closure}}
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/async-executor-1.4.0/src/lib.rs:138:13
+  13: <core::future::from_generator::GenFuture<T> as core::future::future::Future>::poll
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/future/mod.rs:80:19
+  14: async_task::raw::RawTask<F,T,S>::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/async-task-4.0.3/src/raw.rs:489:20
+  15: async_executor::Executor::try_tick
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/async-executor-1.4.0/src/lib.rs:175:17
+  16: bevy_tasks::task_pool::TaskPool::scope
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_tasks-0.4.0/src/task_pool.rs:212:17
+  17: bevy_ecs::schedule::stage_executor::ParallelSystemStageExecutor::run_systems
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/schedule/stage_executor.rs:300:9
+  18: <bevy_ecs::schedule::stage_executor::ParallelSystemStageExecutor as bevy_ecs::schedule::stage_executor::SystemStageExecutor>::execute_stage
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/schedule/stage_executor.rs:496:13
+  19: bevy_ecs::schedule::stage::SystemStage::run_once
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/schedule/stage.rs:102:9
+  20: <bevy_ecs::schedule::stage::SystemStage as bevy_ecs::schedule::stage::Stage>::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/schedule/stage.rs:136:21
+  21: bevy_ecs::schedule::Schedule::run_once
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/schedule/mod.rs:149:13
+  22: <bevy_ecs::schedule::Schedule as bevy_ecs::schedule::stage::Stage>::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_ecs-0.4.0/src/schedule/mod.rs:189:21
+  23: bevy_winit::winit_runner::{{closure}}
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_winit-0.4.0/src/lib.rs:371:17
+  24: <alloc::boxed::Box<F,A> as core::ops::function::FnMut<Args>>::call_mut
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:1314:9
+  25: <winit::platform_impl::platform::app_state::EventLoopHandler<T> as winit::platform_impl::platform::app_state::EventHandler>::handle_nonuser_event
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/winit-0.24.0/src/platform_impl/macos/app_state.rs:71:9
+  26: winit::platform_impl::platform::app_state::Handler::handle_nonuser_event
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/winit-0.24.0/src/platform_impl/macos/app_state.rs:173:21
+  27: winit::platform_impl::platform::app_state::AppState::cleared
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/winit-0.24.0/src/platform_impl/macos/app_state.rs:331:13
+  28: <unknown>
+  29: <unknown>
+  30: <unknown>
+  31: <unknown>
+  32: <unknown>
+  33: <unknown>
+  34: <unknown>
+  35: <unknown>
+  36: <unknown>
+  37: <unknown>
+  38: <() as objc::message::MessageArguments>::invoke
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/objc-0.2.7/src/message/mod.rs:128:17
+  39: objc::message::platform::send_unverified
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/objc-0.2.7/src/message/apple/mod.rs:27:9
+  40: objc::message::send_message
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/objc-0.2.7/src/message/mod.rs:178:5
+  41: winit::platform_impl::platform::event_loop::EventLoop<T>::run_return
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/winit-0.24.0/src/platform_impl/macos/event_loop.rs:106:25
+  42: winit::platform_impl::platform::event_loop::EventLoop<T>::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/winit-0.24.0/src/platform_impl/macos/event_loop.rs:93:9
+  43: winit::event_loop::EventLoop<T>::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/winit-0.24.0/src/event_loop.rs:154:9
+  44: bevy_winit::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_winit-0.4.0/src/lib.rs:121:5
+  45: bevy_winit::winit_runner
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_winit-0.4.0/src/lib.rs:379:9
+  46: core::ops::function::Fn::call
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ops/function.rs:70:5
+  47: <alloc::boxed::Box<F,A> as core::ops::function::Fn<Args>>::call
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/alloc/src/boxed.rs:1321:9
+  48: bevy_app::app::App::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_app-0.4.0/src/app.rs:67:9
+  49: bevy_app::app_builder::AppBuilder::run
+             at /Users/darzu/.cargo/registry/src/github.com-1ecc6299db9ec823/bevy_app-0.4.0/src/app_builder.rs:49:9
+  50: my_bevy_game::main
+             at ./src/main.rs:513:5
+  51: core::ops::function::FnOnce::call_once
+             at /Users/darzu/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/src/rust/library/core/src/ops/function.rs:227:5
+note: Some details are omitted, run with `RUST_BACKTRACE=full` for a verbose backtrace.
+ ✘  ~/silly-bevy-thing   master  

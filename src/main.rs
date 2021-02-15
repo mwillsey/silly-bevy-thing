@@ -32,7 +32,7 @@ const PLYR_GRP: u16 = 0b0100000000000000;
 const BLOB_GRP: u16 = 0b0010000000000000;
 const ALL_GRP: u16 = u16::MAX;
 
-const SCALE: f32 = 20.0;
+const SCALE: f32 = 30.0;
 
 #[derive(Bundle)]
 struct BoxBundle {
@@ -124,8 +124,9 @@ fn gen_world(
         .with(Platform);
     };
 
-    for x in -10..10 {
-        for y in -10..10 {
+    let S = 2;
+    for x in -S..S {
+        for y in -S..S {
             // spawn platform
             let (x, y) = (x as f32, y as f32);
             let (w, h) = (200.0, 10.0);
